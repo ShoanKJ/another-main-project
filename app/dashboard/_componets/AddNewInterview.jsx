@@ -11,25 +11,35 @@ import { Button } from '@/components/ui/button'
 import { chatSession } from '@/utils/GeminiAIModel'
 import { db } from '@/utils/db'
 import { MockInterview } from '@/utils/schema'
-import { v4 as uuidv4 } from 'uuid'  
-import moment from 'moment'          
+import { v4 as uuidv4 } from 'uuid'
+import moment from 'moment'
 import { useUser } from '@clerk/nextjs'
 import { useRouter } from 'next/navigation'
-import { LoaderCircle } from 'lucide-react'
+
 function AddNewInterview() {
   const [openDialog, setOpenDialog] = useState(false)
   const [jobPosition, setJobPosition] = useState('')
   const [jobDesc, setJobDesc] = useState('')
   const [jobExperience, setJobExperience] = useState('')
+  const [questionCount, setQuestionCount] = useState(5) // NEW
   const [loading, setLoading] = useState(false)
   const { user } = useUser()
   const router = useRouter()
+
+  const handleClose = () => {
+    setOpenDialog(false)
+    setJobPosition('')
+    setJobDesc('')
+    setJobExperience('')
+    setQuestionCount(5)
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
 
-    const InputPrompt = `Job Position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this, give me ${process.env.NEXT_PUBLIC_INTERVIEW_QUESTION_COUNT} interview questions with answers in JSON format. Give Question and Answer as fields in JSON. Only return the JSON, no extra text.`
+    // NEW — uses questionCount state instead of env variable
+    const InputPrompt = `Job Position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this, give me ${questionCount} interview questions with answers in JSON format. Give Question and Answer as fields in JSON. Only return the JSON, no extra text.`
 
     try {
       const result = await chatSession.sendMessage(InputPrompt)
@@ -43,18 +53,18 @@ function AddNewInterview() {
         const resp = await db
           .insert(MockInterview)
           .values({
-            mockId: uuidv4(),           // ✅ now works
+            mockId: uuidv4(),
             jsonMockResp: MockJsonResp,
             jobPosition,
             jobDesc,
             jobExperience,
             createdBy: user?.primaryEmailAddress?.emailAddress,
-            createdAt: moment().format('DD-MM-YYYY'), // ✅ now works
+            createdAt: moment().format('DD-MM-YYYY'),
           })
           .returning({ mockId: MockInterview.mockId })
 
         if (resp) {
-          setOpenDialog(false)
+          handleClose()
           router.push(`/dashboard/interview/${resp[0]?.mockId}`)
         }
       }
@@ -74,7 +84,7 @@ function AddNewInterview() {
         <h2 className='font-bold text-lg text-center'>+ Add New Interview</h2>
       </div>
 
-      <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+      <Dialog open={openDialog} onOpenChange={handleClose}>
         <DialogContent className='max-w-2xl'>
           <DialogHeader>
             <DialogTitle className='text-2xl font-bold'>
@@ -86,6 +96,8 @@ function AddNewInterview() {
           </DialogHeader>
 
           <form onSubmit={onSubmit} className='flex flex-col gap-4 mt-2'>
+
+            {/* Job Title */}
             <div>
               <label className='block mb-2 font-medium'>
                 Job Title <span className='text-red-500'>*</span>
@@ -95,10 +107,12 @@ function AddNewInterview() {
                 className='w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                 placeholder='e.g. Software Engineer'
                 required
+                value={jobPosition}
                 onChange={(e) => setJobPosition(e.target.value)}
               />
             </div>
 
+            {/* Job Description */}
             <div>
               <label className='block mb-2 font-medium'>
                 Job Description / Tech Stack <span className='text-red-500'>*</span>
@@ -107,10 +121,12 @@ function AddNewInterview() {
                 className='w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500'
                 placeholder='e.g. React, Node.js, MongoDB'
                 required
+                value={jobDesc}
                 onChange={(e) => setJobDesc(e.target.value)}
               />
             </div>
 
+            {/* Years of Experience */}
             <div>
               <label className='block mb-2 font-medium'>
                 Years of Experience <span className='text-red-500'>*</span>
@@ -121,16 +137,40 @@ function AddNewInterview() {
                 placeholder='e.g. 2'
                 max='50'
                 required
+                value={jobExperience}
                 onChange={(e) => setJobExperience(e.target.value)}
               />
             </div>
 
+            {/* NEW — Question Count */}
+            <div>
+              <label className='block mb-2 font-medium'>
+                Number of Questions
+              </label>
+              <div className='flex gap-2'>
+                {[3, 5, 7, 10].map((count) => (
+                  <button
+                    key={count}
+                    type='button'
+                    onClick={() => setQuestionCount(count)}
+                    className={`flex-1 py-2 rounded-md border text-sm font-medium transition-colors ${
+                      questionCount === count
+                        ? 'bg-indigo-600 text-white border-indigo-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400 hover:text-indigo-600'
+                    }`}
+                  >
+                    {count}
+                  </button>
+                ))}
+              </div>
+              <p className='text-xs text-gray-400 mt-1'>
+                More questions = longer interview · currently selected: {questionCount}
+              </p>
+            </div>
+
+            {/* Actions */}
             <div className='flex gap-3 justify-end mt-2'>
-              <Button
-                type='button'
-                variant='ghost'
-                onClick={() => setOpenDialog(false)}
-              >
+              <Button type='button' variant='ghost' onClick={handleClose}>
                 Cancel
               </Button>
               <Button type='submit' disabled={loading}>
@@ -145,7 +185,6 @@ function AddNewInterview() {
               </Button>
             </div>
           </form>
-
         </DialogContent>
       </Dialog>
     </div>
