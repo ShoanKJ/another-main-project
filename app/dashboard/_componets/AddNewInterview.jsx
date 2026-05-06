@@ -1,5 +1,5 @@
 "use client"
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -21,10 +21,16 @@ function AddNewInterview() {
   const [jobPosition, setJobPosition] = useState('')
   const [jobDesc, setJobDesc] = useState('')
   const [jobExperience, setJobExperience] = useState('')
-  const [questionCount, setQuestionCount] = useState(5) // NEW
+  const [questionCount, setQuestionCount] = useState(5)
   const [loading, setLoading] = useState(false)
+  const [resumeData, setResumeData] = useState(null)
   const { user } = useUser()
   const router = useRouter()
+
+  useEffect(() => {
+    const stored = localStorage.getItem('resumeData')
+    if (stored) setResumeData(JSON.parse(stored))
+  }, [])
 
   const handleClose = () => {
     setOpenDialog(false)
@@ -38,8 +44,11 @@ function AddNewInterview() {
     e.preventDefault()
     setLoading(true)
 
-    // NEW — uses questionCount state instead of env variable
-    const InputPrompt = `Job Position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. Based on this, give me ${questionCount} interview questions with answers in JSON format. Give Question and Answer as fields in JSON. Only return the JSON, no extra text.`
+    const skillsContext = resumeData?.skills?.length
+      ? `The candidate has experience with: ${resumeData.skills.join(', ')}.`
+      : ''
+
+    const InputPrompt = `Job Position: ${jobPosition}, Job Description: ${jobDesc}, Years of Experience: ${jobExperience}. ${skillsContext} Based on this, give me ${questionCount} interview questions with answers in JSON format. Give Question and Answer as fields in JSON. Only return the JSON, no extra text.`
 
     try {
       const result = await chatSession.sendMessage(InputPrompt)
@@ -97,6 +106,30 @@ function AddNewInterview() {
 
           <form onSubmit={onSubmit} className='flex flex-col gap-4 mt-2'>
 
+            {/* Resume detected banner */}
+            {resumeData?.skills?.length > 0 && (
+              <div className='p-3 bg-green-50 border border-green-200 rounded-lg'>
+                <div className='flex items-center justify-between'>
+                  <p className='text-green-700 text-sm font-medium'>
+                    ✅ Resume detected — questions will be tailored to your skills:
+                  </p>
+                  <button
+                    type='button'
+                    onClick={() => {
+                      localStorage.removeItem('resumeData')
+                      setResumeData(null)
+                    }}
+                    className='text-xs text-red-500 hover:text-red-700 underline ml-3 shrink-0'
+                  >
+                    Clear Resume
+                  </button>
+                </div>
+                <p className='text-green-600 text-xs mt-1'>
+                  {resumeData.skills.join(', ')}
+                </p>
+              </div>
+            )}
+
             {/* Job Title */}
             <div>
               <label className='block mb-2 font-medium'>
@@ -142,7 +175,7 @@ function AddNewInterview() {
               />
             </div>
 
-            {/* NEW — Question Count */}
+            {/* Question Count */}
             <div>
               <label className='block mb-2 font-medium'>
                 Number of Questions

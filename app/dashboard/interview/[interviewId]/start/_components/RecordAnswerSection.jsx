@@ -24,7 +24,6 @@ const RecordAnswerSection = ({
   const recognitionRef = useRef(null);
 
   useEffect(() => {
-    // Reset answer when question changes
     setUserAnswer("");
     setIsRecording(false);
     if (recognitionRef.current) {
@@ -108,10 +107,18 @@ const RecordAnswerSection = ({
     }
 
     setLoading(true);
-    console.log("Saving answer:", userAnswer);
 
     try {
-      const feedbackPrompt = `Question: ${mockInterviewQuestion[activeQuestionIndex]?.Question}, User Answer: ${userAnswer}. Please give a rating out of 10 and feedback on improvement in JSON format with rating and feedback fields only. Return only JSON, no extra text.`;
+      const feedbackPrompt = `Question: ${mockInterviewQuestion[activeQuestionIndex]?.Question}, User Answer: ${userAnswer}. 
+Evaluate this interview answer and return ONLY a JSON object with these exact fields:
+- rating: number from 1-10
+- feedback: 2-3 sentence overall feedback string
+- confidence: number from 0-100 (how assertive and certain the answer sounds)
+- clarity: number from 0-100 (how clear and well-explained the answer is)
+- structure: number from 0-100 (how well-organized using STAR or similar framework)
+- strengths: array of 2 short strength strings
+- improvements: array of 2 short improvement strings
+Return only the JSON, no extra text.`;
 
       const result = await chatSession.sendMessage(feedbackPrompt);
       const mockJsonResp = result.response
@@ -128,7 +135,7 @@ const RecordAnswerSection = ({
         question: mockInterviewQuestion[activeQuestionIndex]?.Question,
         correctAns: mockInterviewQuestion[activeQuestionIndex]?.Answer,
         userAns: userAnswer,
-        feedback: JsonfeedbackResp?.feedback,
+        feedback: JSON.stringify(JsonfeedbackResp),
         rating: String(JsonfeedbackResp?.rating),
         userEmail: user?.primaryEmailAddress?.emailAddress,
         createdAt: moment().format("DD-MM-YYYY"),
@@ -159,16 +166,12 @@ const RecordAnswerSection = ({
       {/* Webcam */}
       <div className="flex flex-col my-10 justify-center items-center bg-black rounded-lg p-5 w-full">
         {webcamEnabled ? (
-          <Webcam
-            mirrored={true}
-            style={{ height: 200, width: "100%" }}
-          />
+          <Webcam mirrored={true} style={{ height: 200, width: "100%" }} />
         ) : (
           <div className="w-full h-[200px] flex justify-center items-center bg-gray-800 rounded-lg">
             <p className="text-gray-400">Webcam Disabled</p>
           </div>
         )}
-
         <Button
           variant="outline"
           className="mt-4 w-full"
